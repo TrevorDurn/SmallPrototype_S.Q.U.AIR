@@ -6,8 +6,8 @@
 #include "PMS5003.h"
 
 // WiFi credentials
-char ssid[] = "SpectrumSetup-2B";  // Change to your open WiFi SSID
-char password[] = "pledgeyard896"; // comment out if no password
+char ssid[] = "CU-LIONS";  // Change to your open WiFi SSID
+// char password[] = "pledgeyard896"; // comment out if no password
 
 // NTP Client
 WiFiUDP ntpUDP;
@@ -19,8 +19,8 @@ PMS5003 pms5003(PB2, PB1); // RX, TX
 
 // AWS IoT credentials
 char mqttServer[] = "a2hwu90puqi62x-ats.iot.us-east-1.amazonaws.com";
-char clientId[] = "Sensor_2"; //here is where we name our sensor, this should be a student's unique identifier
-char publishTopic[] = "/secondsensor/1mindata"; //here we cn change topics based on student, still figuring out how this is going to work
+char clientId[] = "Sensor_2"; // Sensor identifier
+char publishTopic[] = "/secondsensor/1mindata"; // Change topics based on student
 char publishPayload[MQTT_MAX_PACKET_SIZE];
 char* subscribeTopic[5] = {
     "$aws/things/ameba/shadow/update/accepted",
@@ -107,6 +107,10 @@ WiFiSSLClient wifiClient;
 PubSubClient client(wifiClient);
 
 void epochToDateTime(unsigned long epoch, int &year, int &month, int &day, int &hour, int &minute, int &second) {
+    // Debugging epoch time
+    Serial.print("Epoch time: ");
+    Serial.println(epoch);
+
     second = epoch % 60;
     epoch /= 60;
     minute = epoch % 60;
@@ -165,6 +169,8 @@ void reconnect() {
 
             for (int i = 0; i < 5; i++) {
                 client.subscribe(subscribeTopic[i]);
+                Serial.print("Subscribed to topic: ");
+                Serial.println(subscribeTopic[i]);
             }
         } else {
             Serial.print("failed, rc=");
@@ -179,7 +185,7 @@ void setup() {
     Serial.begin(115200);
 
     // Connect to WiFi
-    WiFi.begin(ssid, password); // Include password if needed in the form (ssid, password);
+    WiFi.begin(ssid); // Include password if needed in the form (ssid, password);
     Serial.println("Connecting to WiFi...");
 
     while (WiFi.status() != WL_CONNECTED) {
@@ -193,14 +199,21 @@ void setup() {
     Serial.println(WiFi.localIP());
 
     // Initialize sensors
+    Serial.println("Initializing BME280...");
     if (!bme280.begin()) {
         Serial.println("BME280 initialization failed");
         while (1);
     }
+    Serial.println("BME280 initialized successfully");
+
+    Serial.println("Initializing PMS5003...");
     pms5003.begin();
+    Serial.println("PMS5003 initialized successfully");
 
     // Initialize NTP Client
+    Serial.println("Initializing NTP client...");
     timeClient.begin();
+    Serial.println("NTP client initialized");
 
     wifiClient.setRootCA((unsigned char*)rootCABuff);
     wifiClient.setClientCertificate((unsigned char*)certificateBuff, (unsigned char*)privateKeyBuff);
@@ -209,19 +222,24 @@ void setup() {
     client.setCallback(callback);
 
     delay(1500);
+    Serial.println("Setup complete.");
 }
 
 void loop() {
     if (!client.connected()) {
+        Serial.println("MQTT client not connected. Attempting reconnect...");
         reconnect();
     }
     client.loop();
 
     // Update NTP Client
+    Serial.println("Updating NTP client...");
     timeClient.update();
 
     // Get current time
     unsigned long epochTime = timeClient.getEpochTime();
+    Serial.print("Epoch time received: ");
+    Serial.println(epochTime);
 
     // Convert epoch time to local time
     int year, month, day, hour, minute, second;
@@ -243,6 +261,7 @@ void loop() {
 
     // Read PMS5003 data
     int pm10, pm25, pm100;
+    Serial.println("Reading PMS5003 data...");
     if (pms5003.read(pm10, pm25, pm100)) {
         Serial.print("PM2.5: ");
         Serial.print(pm25);
@@ -253,6 +272,7 @@ void loop() {
 
     // Read BME280 data
     float temperature, humidity;
+    Serial.println("Reading BME280 data...");
     bme280.read(temperature, humidity);
     Serial.print("Temperature: ");
     Serial.print(temperature);
@@ -262,7 +282,8 @@ void loop() {
     Serial.println(" %");
 
     // Publish sensor data to AWS IoT
-    sprintf(publishPayload,"{\"state\":{\"reported\":{\"time\":\"%02d/%02d/%04d %02d:%02d:%02d\",\"pm25\":%d,\"temperature\":%.2f,\"humidity\":%.2f}},\"clientToken\":\"%s\"}",
+    Serial.println("Publishing data to AWS IoT...");
+    sprintf(publishPayload, "{\"state\":{\"reported\":{\"time\":\"%02d/%02d/%04d %02d:%02d:%02d\",\"pm25\":%d,\"temperature\":%.2f,\"humidity\":%.2f}},\"clientToken\":\"%s\"}",
         month, day, year, hour, minute, second, pm25, temperature, humidity, clientId);
     client.publish(publishTopic, publishPayload);
     Serial.print("Publish [");
@@ -270,5 +291,5 @@ void loop() {
     Serial.print("] ");
     Serial.println(publishPayload);
 
-    delay(30000);
+    delay(10000);
 }
