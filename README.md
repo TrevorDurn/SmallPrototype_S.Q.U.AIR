@@ -9,10 +9,4 @@ What you need:
 Enjoy! I still have the MQTT in the code but this is the basic idea and where I am with development. Would love any and all input - collaboration is key!
 -Trevor
 
-Trevor James Durning
-President, Tri-State Air Quality
-Columbia University | General Studies '25
-Environmental Chemistry and Sustainable Development B.A. 
-Research Technician, Westervelt Aerosol Group
-Research Assistant, McNeill Group
-Trevor.James.Durning@columbia.edu
+Trevor James Durning | | Trevor.James.Durning@columbia.edu
